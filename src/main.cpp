@@ -12,8 +12,8 @@
 Adafruit_NeoPixel leds(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
 // Variables pour la gestion des modes
-int currentMode = 0;          // Mode actuel (0 : flamme, 1 : blanc, 2 : scintillement bleu)
-const int totalModes = 3;     // Nombre total de modes disponibles
+int currentMode = 0;          // Mode actuel (0 : flamme, 1 : blanc, 2 : scintillement bleu, 3 : off)
+const int totalModes = 4;     // Nombre total de modes disponibles
 
 float globalParameter = 50;    // Paramètre global (0 à 100), initialisé à 50 
 
@@ -52,6 +52,8 @@ void modeWhite();
 // Fonction pour le mode scintillement bleu
 void modeBlueFlicker();
 
+// Fonction pour le mode off
+void modeOff();
 
 /* ------------------- Fonctions utilitaires ------------------- */
 
@@ -95,19 +97,22 @@ const long interval = 50;   // Intervalle de mise à jour en millisecondes
 
 // Paramètres pour le mode scintillement bleu
 float ledForce[NUM_LEDS];         // Force pour chaque LED
-float ledIncrement[NUM_LEDS];     // Vitesse de changement de force pour chaque LED
-float ledPhase[NUM_LEDS];         // Phase initiale pour chaque LED
-unsigned long nextLedChange[NUM_LEDS];  // Prochain temps de changement de vitesse pour chaque LED
+float ledSpeed[NUM_LEDS];         // Vitesse de changement de force pour chaque LED
+int ledDirection[NUM_LEDS];       // Direction de changement de force (+1 ou -1)
+unsigned long nextLedSpeedChange[NUM_LEDS];  // Prochain temps de changement de vitesse pour chaque LED
 
-float minLedIncrement = 0.001;     // Vitesse minimale
-float maxLedIncrement = 0.01;      // Vitesse maximale
-unsigned long minLedChangeInterval = 2000; // Intervalle min pour changer la vitesse (en ms)
-unsigned long maxLedChangeInterval = 5000; // Intervalle max pour changer la vitesse (en ms)
+float minLedSpeed = 0.0005;     // Vitesse minimale
+float maxLedSpeed = 0.005;      // Vitesse maximale
+unsigned long minLedSpeedChangeInterval = 2000; // Intervalle min pour changer la vitesse (en ms)
+unsigned long maxLedSpeedChangeInterval = 5000; // Intervalle max pour changer la vitesse (en ms)
 
-float blueMin = 165.0;             // Valeur minimale du bleu (0-255)
-float blueMax = 205.0;             // Valeur maximale du bleu (0-255)
-float intensityMin = 0.005;         // Intensité minimale (0.0 - 1.0)
-float intensityMax = 0.05;         // Intensité maximale (0.0 - 1.0)
+// Teintes minimales et maximales (en valeurs HSV de 0 à 65535)
+const uint16_t hueMin = 45152;   // 270 degrés (violet)
+const uint16_t hueMax = 45000;   // 180 degrés (cyan)
+
+// Intensités minimales et maximales
+float intensityMin = 0.001;        // Intensité minimale (0.0 - 1.0)
+float intensityMax = 0.1;        // Intensité maximale (0.0 - 1.0)
 
 /* ------------------- Fonction setup ------------------- */
 
@@ -131,10 +136,10 @@ void setup() {
 
   // Initialisation des variables pour le mode scintillement bleu
   for (int i = 0; i < NUM_LEDS; i++) {
-    ledForce[i] = randomFloat(0.0, TWO_PI);
-    ledIncrement[i] = randomFloat(minLedIncrement, maxLedIncrement);
-    ledPhase[i] = randomFloat(0.0, TWO_PI);
-    nextLedChange[i] = millis() + random(minLedChangeInterval, maxLedChangeInterval);
+    ledForce[i] = randomFloat(0.0, 1.0);
+    ledSpeed[i] = randomFloat(minLedSpeed, maxLedSpeed);
+    ledDirection[i] = (random(0, 2) == 0) ? -1 : 1;
+    nextLedSpeedChange[i] = millis() + random(minLedSpeedChangeInterval, maxLedSpeedChangeInterval);
   }
 }
 
@@ -159,6 +164,9 @@ void loop() {
       break;
     case 2:
       modeBlueFlicker();
+      break;
+    case 3:
+      modeOff();
       break;
     default:
       // Mode par défaut si nécessaire
@@ -370,7 +378,7 @@ void modeWhite() {
 
   // Allumer toutes les LED en blanc avec l'intensité définie
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds.setPixelColor(i, leds.Color(brightness, brightness, brightness));
+    leds.setPixelColor(i, brightness, brightness, brightness);
   }
 
   leds.show();
@@ -384,38 +392,48 @@ void modeBlueFlicker() {
   // Mettre à jour chaque LED individuellement
   for (int i = 0; i < NUM_LEDS; i++) {
     // Mettre à jour la force de la LED
-    ledForce[i] += ledIncrement[i];
-    if (ledForce[i] > TWO_PI) {
-      ledForce[i] -= TWO_PI;
+    ledForce[i] += ledSpeed[i] * ledDirection[i];
+
+    // Inverser la direction si la force atteint les bornes
+    if (ledForce[i] >= 1.0) {
+      ledForce[i] = 1.0;
+      ledDirection[i] = -1;
+    } else if (ledForce[i] <= 0.0) {
+      ledForce[i] = 0.0;
+      ledDirection[i] = 1;
     }
 
     // Vérifier s'il est temps de changer la vitesse de variation pour cette LED
-    if (currentMillis >= nextLedChange[i]) {
-      ledIncrement[i] = randomFloat(minLedIncrement, maxLedIncrement);
-      nextLedChange[i] = currentMillis + random(minLedChangeInterval, maxLedChangeInterval);
+    if (currentMillis >= nextLedSpeedChange[i]) {
+      ledSpeed[i] = randomFloat(minLedSpeed, maxLedSpeed);
+      nextLedSpeedChange[i] = currentMillis + random(minLedSpeedChangeInterval, maxLedSpeedChangeInterval);
     }
 
-    // Calculer la force oscillant entre 0 et 1
-    float sinValue = (sin(ledForce[i] + ledPhase[i]) + 1.0) / 2.0;  // Valeur entre 0 et 1
+    // Calculer la teinte en fonction de la force
+    uint16_t hue = hueMin + (uint16_t)((hueMax - hueMin) * ledForce[i]);
 
-    // Ajuster l'intensité en fonction du globalParameter
-    float intensityRange = intensityMax - intensityMin;
-    float intensity = intensityMin + sinValue * intensityRange * (globalParameter / 100.0);
+    // Calculer l'intensité en fonction de la force et du globalParameter
+    float intensity = intensityMin + (intensityMax - intensityMin) * ledForce[i] * (globalParameter / 100.0);
 
-    // Calculer la valeur du bleu en fonction de la force
-    float blueRange = blueMax - blueMin;
-    uint8_t blueValue = (uint8_t)(blueMin + sinValue * blueRange);
+    // Limiter l'intensité entre 0 et 1
+    if (intensity > 1.0) intensity = 1.0;
+    if (intensity < 0.0) intensity = 0.0;
 
-    // Calculer les valeurs de rouge et vert pour la nuance de bleu souhaitée
-    // Transition du violet (plus de rouge) au cyan (plus de vert)
-    uint8_t r = (uint8_t)(intensity * (255 - sinValue * 255)); // Réduit le rouge avec la force
-    uint8_t g = (uint8_t)(intensity * (sinValue * 255));       // Augmente le vert avec la force
-    uint8_t b = (uint8_t)(blueValue * intensity);             // Applique l'intensité au bleu
+    uint8_t value = (uint8_t)(intensity * 255);
 
-    // Appliquer les couleurs aux LEDs
-    leds.setPixelColor(i, r, g, b);
+    // Obtenir la couleur HSV
+    uint32_t color = leds.ColorHSV(hue, 255, value);
+
+    // Appliquer la couleur à la LED
+    leds.setPixelColor(i, color);
   }
 
   leds.show();
 }
 
+/* ------------------- Mode 3 : Off ------------------- */
+
+void modeOff() {
+  leds.clear();
+  leds.show();
+}
