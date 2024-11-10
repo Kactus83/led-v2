@@ -7,6 +7,7 @@
 #include "WhiteMode.h"
 #include "BlueFlickerMode.h"
 #include "FlameMode.h"
+#include "GradientMode.h"
 #include "ButtonHandler.h"
 #include "Utils.h"
 
@@ -32,7 +33,7 @@ float exponentialFactor = 1.5;
 unsigned long buttonPressedTime = 0;
 
 // Tableau des modes d'éclairage
-const int totalModes = 4;
+const int totalModes = 5;
 LightingMode* modes[totalModes];
 int currentModeIndex = 1; // Initialisé à 1 (blanc)
 
@@ -52,6 +53,7 @@ void setup() {
     modes[1] = new WhiteMode(&leds, &globalParameter);
     modes[2] = new BlueFlickerMode(&leds, &globalParameter);
     modes[3] = new FlameMode(&leds, &globalParameter);
+    modes[4] = new GradientMode(&leds, &globalParameter);
 
     // Initialisation du gestionnaire de bouton
     buttonHandler.begin();
