@@ -16,7 +16,7 @@ private:
     float ledSpeed[NUM_LEDS_FLICKER];
     unsigned long lastUpdateFlicker[NUM_LEDS_FLICKER];
 
-    // Nouvelles variables pour l'oscillation aléatoire
+    // Variables pour l'oscillation aléatoire de la force
     float ledMinForce[NUM_LEDS_FLICKER];
     float ledMaxForce[NUM_LEDS_FLICKER];
 
@@ -29,8 +29,6 @@ private:
     uint16_t hueMax;
     float intensityMin;
     float intensityMax;
-
-    // Variables pour la conversion non linéaire de l'intensité
     float intensityExponent;
 
     // Variables pour le mode étoile
@@ -48,8 +46,9 @@ private:
     unsigned long starMinFallTime;
     unsigned long starMaxFallTime;
     float starCurrentIntensity[NUM_LEDS_FLICKER];
-    unsigned long starRiseTime[NUM_LEDS_FLICKER];
-    unsigned long starFallTime[NUM_LEDS_FLICKER];
+    unsigned long starRiseTimeActual[NUM_LEDS_FLICKER];
+    unsigned long starFallTimeActual[NUM_LEDS_FLICKER];
+    float starMaxIntensityEndActual[NUM_LEDS_FLICKER];
 
     // Fonction pour mettre à jour les LEDs en mode étoile
     void updateStarMode(int index, unsigned long currentMillis);

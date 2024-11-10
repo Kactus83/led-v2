@@ -6,15 +6,15 @@
 BlueFlickerMode::BlueFlickerMode(Adafruit_NeoPixel* strip, float* globalParam) 
     : LightingMode(strip, globalParam) {
     // Initialisation des variables spécifiques au mode scintillement bleu
-    minLedSpeed = 0.0001;
-    maxLedSpeed = 0.0005;
+    minLedSpeed = 0.0002;
+    maxLedSpeed = 0.001;
     minLedForce = 0.0;
     maxLedForce = 1.0;
     hueMin = 34768;   // 180 degrés (cyan)
     hueMax = 51152;   // 270 degrés (violet)
     intensityMin = 0.0025;
-    intensityMax = 0.1;
-    intensityExponent = 2.0; // Exposant pour la conversion non linéaire
+    intensityMax = 1.0;
+    intensityExponent = 3.0; // Exposant pour la conversion non linéaire
 
     // Variables pour le mode étoile
     maxStars = 2;             // Nombre maximum de LEDs en mode étoile simultanément
@@ -43,6 +43,9 @@ BlueFlickerMode::BlueFlickerMode(Adafruit_NeoPixel* strip, float* globalParam)
         starCurrentIntensity[i] = 0.0;
         starStartTime[i] = 0;
         starDuration[i] = 0;
+        starRiseTimeActual[i] = 0;
+        starFallTimeActual[i] = 0;
+        starMaxIntensityEndActual[i] = 0.0;
     }
 }
 
@@ -57,6 +60,18 @@ void BlueFlickerMode::update() {
         }
     }
 
+    // Calcul des variables dynamiques basées sur globalParameter
+    float dynamicIntensityMax = mapf(*globalParameter, 0.0, 100.0, 0.2, 1.0);
+    float dynamicIntensityExponent = mapf(*globalParameter, 0.0, 100.0, 2.0, 3.0);
+    float dynamicStarProbability = mapf(*globalParameter, 0.0, 100.0, 0.00005, 0.000025);
+    float dynamicStarMaxIntensityEnd = mapf(*globalParameter, 0.0, 100.0, 0.5, 1.0);
+
+    // Mise à jour des variables dépendantes de globalParameter
+    intensityMax = dynamicIntensityMax;
+    intensityExponent = dynamicIntensityExponent;
+    starProbability = dynamicStarProbability;
+    // starMaxIntensityEndActual est géré par LED individuelle
+
     for (int i = 0; i < NUM_LEDS_FLICKER; i++) {
         // Gestion du mode étoile
         if (isStarMode[i]) {
@@ -66,13 +81,15 @@ void BlueFlickerMode::update() {
             // La LED entre en mode étoile
             isStarMode[i] = true;
             starStartTime[i] = currentMillis;
-            starRiseTime[i] = random(starMinRiseTime, starMaxRiseTime);
-            starFallTime[i] = random(starMinFallTime, starMaxFallTime);
-            starDuration[i] = starRiseTime[i] + starFallTime[i];
+            starRiseTimeActual[i] = random(starMinRiseTime, starMaxRiseTime);
+            starFallTimeActual[i] = random(starMinFallTime, starMaxFallTime);
+            starDuration[i] = starRiseTimeActual[i] + starFallTimeActual[i];
             starCurrentIntensity[i] = starMinIntensityStart;
+
             // Intensités de début et de fin pour l'animation
-            starMinIntensityStart = randomFloat(0.0, 0.2);
-            starMaxIntensityEnd = randomFloat(0.8, 1.0);
+            starMinIntensityStart = randomFloat(0.0, 0.1);
+            starMaxIntensityEndActual[i] = randomFloat(0.5, 1.0) * (dynamicStarMaxIntensityEnd / 1.0); // Ajusté selon globalParameter
+
             currentStars++;
             continue; // Passer à la LED suivante
         }
@@ -81,7 +98,7 @@ void BlueFlickerMode::update() {
         unsigned long deltaTime = currentMillis - lastUpdateFlicker[i];
         lastUpdateFlicker[i] = currentMillis;
 
-        // Mettre à jour la force de la LED en fonction de la vitesse
+        // Mettre à jour la force de la LED en fonction de la vitesse et de la direction aléatoire
         ledForce[i] += ledSpeed[i] * deltaTime * ((random(0, 2) == 0) ? -1 : 1);
 
         // Limiter la force entre les bornes individuelles
@@ -99,7 +116,7 @@ void BlueFlickerMode::update() {
         // Calculer la teinte en fonction de la force
         uint16_t hue = hueMin + (uint16_t)((float)(hueMax - hueMin) * ledForce[i]);
 
-        // Conversion non linéaire de l'intensité
+        // Conversion non linéaire de l'intensité avec exponent
         float normalizedForce = (ledForce[i] - minLedForce) / (maxLedForce - minLedForce);
         float intensity = intensityMin + (intensityMax - intensityMin) * pow(normalizedForce, intensityExponent) * (*globalParameter / 100.0);
 
@@ -121,14 +138,14 @@ void BlueFlickerMode::update() {
 void BlueFlickerMode::updateStarMode(int index, unsigned long currentMillis) {
     unsigned long elapsedTime = currentMillis - starStartTime[index];
 
-    if (elapsedTime < starRiseTime[index]) {
+    if (elapsedTime < starRiseTimeActual[index]) {
         // Phase de montée
-        float t = (float)elapsedTime / (float)starRiseTime[index];
-        starCurrentIntensity[index] = starMinIntensityStart + t * (starMaxIntensityEnd - starMinIntensityStart);
+        float t = (float)elapsedTime / (float)starRiseTimeActual[index];
+        starCurrentIntensity[index] = starMinIntensityStart + t * (starMaxIntensityEndActual[index] - starMinIntensityStart);
     } else if (elapsedTime < starDuration[index]) {
         // Phase de descente
-        float t = (float)(elapsedTime - starRiseTime[index]) / (float)starFallTime[index];
-        starCurrentIntensity[index] = starMaxIntensityEnd * (1.0 - t);
+        float t = (float)(elapsedTime - starRiseTimeActual[index]) / (float)starFallTimeActual[index];
+        starCurrentIntensity[index] = starMaxIntensityEndActual[index] * (1.0 - t);
     } else {
         // Fin du mode étoile
         isStarMode[index] = false;
