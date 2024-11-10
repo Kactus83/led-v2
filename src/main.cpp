@@ -33,7 +33,7 @@ float exponentialFactor = 1.5;
 unsigned long buttonPressedTime = 0;
 
 // Tableau des modes d'éclairage
-const int totalModes = 5;
+const int totalModes = 5; // Augmenté à 5 pour inclure le nouveau mode
 LightingMode* modes[totalModes];
 int currentModeIndex = 1; // Initialisé à 1 (blanc)
 
@@ -104,7 +104,7 @@ void updateGlobalParameter() {
     unsigned long pressDuration = millis() - buttonPressedTime;
     float dynamicSpeed = baseSpeed * pow(exponentialFactor, pressDuration / 1000.0); // Variation exponentielle avec le temps d'appui
 
-    // Mettre à jour la phase en fonction de la vitesse dynamique
+    // Mettre à jour le phase en fonction de la vitesse dynamique
     static float phase = 0.0;
     phase += dynamicSpeed * (elapsedTime / 1000.0); // Convertir le temps en secondes
 
