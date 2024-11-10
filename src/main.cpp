@@ -12,7 +12,7 @@
 Adafruit_NeoPixel leds(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
 // Variables pour la gestion des modes
-int currentMode = 0;          // Mode actuel (0 : flamme, 1 : blanc, 2 : scintillement bleu, 3 : off)
+int currentMode = 1;          // Mode actuel (0 : flamme, 1 : blanc, 2 : scintillement bleu, 3 : off)
 const int totalModes = 4;     // Nombre total de modes disponibles
 
 float globalParameter = 50;    // Paramètre global (0 à 100), initialisé à 50 
@@ -101,14 +101,14 @@ float ledSpeed[NUM_LEDS];         // Vitesse de changement de force pour chaque 
 int ledDirection[NUM_LEDS];       // Direction de changement de force (+1 ou -1)
 unsigned long nextLedSpeedChange[NUM_LEDS];  // Prochain temps de changement de vitesse pour chaque LED
 
-float minLedSpeed = 0.0005;     // Vitesse minimale
-float maxLedSpeed = 0.005;      // Vitesse maximale
-unsigned long minLedSpeedChangeInterval = 2000; // Intervalle min pour changer la vitesse (en ms)
+float minLedSpeed = 0.0000005;     // Vitesse minimale
+float maxLedSpeed = 0.0005;      // Vitesse maximale
+unsigned long minLedSpeedChangeInterval = 500; // Intervalle min pour changer la vitesse (en ms)
 unsigned long maxLedSpeedChangeInterval = 5000; // Intervalle max pour changer la vitesse (en ms)
 
 // Teintes minimales et maximales (en valeurs HSV de 0 à 65535)
-const uint16_t hueMin = 45152;   // 270 degrés (violet)
-const uint16_t hueMax = 45000;   // 180 degrés (cyan)
+const uint16_t hueMin = 43000;   // 270 degrés (violet)
+const uint16_t hueMax = 46000;   // 180 degrés (cyan)
 
 // Intensités minimales et maximales
 float intensityMin = 0.001;        // Intensité minimale (0.0 - 1.0)
@@ -157,7 +157,7 @@ void loop() {
   // Appel de la fonction correspondant au mode actuel
   switch (currentMode) {
     case 0:
-      modeFlame();
+      modeOff();
       break;
     case 1:
       modeWhite();
@@ -166,7 +166,7 @@ void loop() {
       modeBlueFlicker();
       break;
     case 3:
-      modeOff();
+      modeFlame();
       break;
     default:
       // Mode par défaut si nécessaire
